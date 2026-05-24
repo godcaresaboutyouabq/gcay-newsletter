@@ -7,14 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script>
-  // ── EmailJS Configuration ──
-  // STEP 1: Replace with your EmailJS Public Key (from emailjs.com → Account → General)
-  const EMAILJS_PUBLIC_KEY  = png9k8N_e1_IBbjf8;
-  // STEP 2: Replace with your EmailJS Service ID (from emailjs.com → Email Services)
-  const EMAILJS_SERVICE_ID  = service_rvt1j8r;
-  // STEP 3: Replace with your EmailJS Template ID (from emailjs.com → Email Templates)
-  const EMAILJS_TEMPLATE_ID = __ejs-test-mail-service__;
-
+  const EMAILJS_PUBLIC_KEY  = 'png9k8N_e1_IBbjf8';
+  const EMAILJS_SERVICE_ID  = 'service_rvt1j8r';
+  const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__'; //
   window.addEventListener('load', () => {
     emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
   });
@@ -505,17 +500,13 @@
         <div class="section-num">4</div>
         <div class="section-header-text">
           <h3>Photos</h3>
-          <p>Upload any photos from this month. Add a short caption to each so we know what it shows.</p>
+          <p>Describe the photos you have for this month. Send the actual photo files directly to gcbyabq@outlook.com with the subject line "Newsletter Photos — [Month]".</p>
         </div>
       </div>
       <div class="section-body">
-        <div class="photo-drop" id="photoDrop" onclick="document.getElementById('photoInput').click()">
-          <input type="file" id="photoInput" accept="image/*" multiple onchange="handlePhotos(this.files)">
-          <div class="photo-drop-icon">🖼️</div>
-          <div class="photo-drop-text">Click to upload photos, or drag and drop here</div>
-          <div class="photo-drop-sub">JPG, PNG — any number of photos</div>
-        </div>
-        <div class="photo-grid" id="photoGrid"></div>
+        <label>Describe your photos (what they show, who is in them)</label>
+        <textarea id="photoDescriptions" rows="4" placeholder="e.g. Photo 1: Car full of food donations from Calvary Lutheran. Photo 2: Volunteers serving at the BBQ on May 18th. Photo 3: Macy with clients at the clothing distribution..."></textarea>
+        <p class="field-hint">After submitting this form, please email your actual photo files to gcbyabq@outlook.com with subject: Newsletter Photos — [Month]</p>
       </div>
     </div>
 
@@ -684,43 +675,8 @@ function addEvent() {
   document.getElementById('events-list').appendChild(div);
 }
 
-// ── PHOTO UPLOAD ──
+// ── PHOTO UPLOAD — replaced with text description ──
 let photoFiles = [];
-function handlePhotos(files) {
-  for (const file of files) {
-    if (!file.type.startsWith('image/')) continue;
-    const reader = new FileReader();
-    const idx = photoFiles.length;
-    photoFiles.push({ file, caption: '' });
-    reader.onload = (e) => {
-      const grid = document.getElementById('photoGrid');
-      const item = document.createElement('div');
-      item.className = 'photo-item';
-      item.id = 'photo-item-' + idx;
-      item.innerHTML = `
-        <img src="${e.target.result}" class="photo-thumb" alt="photo ${idx+1}">
-        <button type="button" class="photo-remove" onclick="removePhoto(${idx})" title="Remove">×</button>
-        <input class="photo-caption-field" type="text" placeholder="Caption..." oninput="photoFiles[${idx}].caption = this.value">
-      `;
-      grid.appendChild(item);
-    };
-    reader.readAsDataURL(file);
-  }
-  const drop = document.getElementById('photoDrop');
-  drop.style.borderStyle = 'solid';
-  drop.style.borderColor = 'var(--gold-border)';
-}
-function removePhoto(idx) {
-  const el = document.getElementById('photo-item-' + idx);
-  if (el) el.remove();
-  photoFiles[idx] = null;
-}
-
-// Drag and drop
-const drop = document.getElementById('photoDrop');
-drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
-drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
-drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('drag-over'); handlePhotos(e.dataTransfer.files); });
 
 // ── COLLECT FORM DATA ──
 function collectFormData() {
@@ -748,7 +704,7 @@ function collectFormData() {
     });
   });
 
-  const photos = photoFiles.filter(Boolean).map(p => p.caption).filter(Boolean);
+  const photos = [(document.getElementById('photoDescriptions') || {}).value].filter(Boolean);
 
   const monthRaw = get('month');
   const monthLabel = monthRaw ? new Date(monthRaw + '-01').toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
@@ -853,40 +809,40 @@ async function handleSubmit(e) {
 
   // ── Send email notification to Director via EmailJS ──
   try {
-    const partnerLines = [];
+    const partnerLines2 = [];
     document.querySelectorAll('[name^="partner_name_"]').forEach(el => {
       const n = el.name.split('_').pop();
-      const desc = (document.querySelector(`[name="partner_desc_${n}"]`) || {}).value || '';
-      if (el.value) partnerLines.push(`• ${el.value}: ${desc}`);
+      const desc2 = (document.querySelector(`[name="partner_desc_${n}"]`) || {}).value || '';
+      if (el.value) partnerLines2.push(`${el.value}: ${desc2}`);
     });
-    const eventLines = [];
+    const eventLines2 = [];
     document.querySelectorAll('[name^="event_name_"]').forEach(el => {
       const n = el.name.split('_').pop();
-      const story = (document.querySelector(`[name="event_story_${n}"]`) || {}).value || '';
-      if (el.value) eventLines.push(`• ${el.value}: ${story}`);
+      const story2 = (document.querySelector(`[name="event_story_${n}"]`) || {}).value || '';
+      if (el.value) eventLines2.push(`${el.value}: ${story2}`);
     });
-    const get = id => (document.getElementById(id) || {}).value || 'Not provided';
+    const gv = id => (document.getElementById(id) || {}).value || 'Not provided';
     await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      submitted_by:   data.submitter || 'Unknown',
+      submitted_by:     data.submitter || 'Unknown',
       newsletter_month: data.month || 'Not specified',
-      opening_theme:  data.openingTheme || 'Not provided',
-      partnerships:   partnerLines.join('\n') || 'None submitted',
-      events:         eventLines.join('\n') || 'None submitted',
-      people_served:  get('numPeople'),
-      meals:          get('numMeals'),
-      clothing:       get('numClothing'),
-      grocery_bags:   get('numGrocery'),
-      vol_hours:      get('numVolHours'),
-      other_count:    get('numOther'),
-      praise_reports: get('praiseReports'),
-      prayer_requests:get('prayerRequests'),
-      call_to_action: `${get('ctaType')} — ${get('ctaDetails')}`,
-      extra_notes:    get('extraNotes'),
-      reply_to:       'gcay.newsletter@gmail.com',
+      opening_theme:    data.openingTheme || 'Not provided',
+      partnerships:     partnerLines2.join(' | ') || 'None submitted',
+      events:           eventLines2.join(' | ') || 'None submitted',
+      people_served:    gv('numPeople'),
+      meals:            gv('numMeals'),
+      clothing:         gv('numClothing'),
+      grocery_bags:     gv('numGrocery'),
+      vol_hours:        gv('numVolHours'),
+      other_count:      gv('numOther'),
+      praise_reports:   gv('praiseReports'),
+      prayer_requests:  gv('prayerRequests'),
+      call_to_action:   gv('ctaType') + ' - ' + gv('ctaDetails'),
+      photo_notes:      gv('photoDescriptions'),
+      extra_notes:      gv('extraNotes'),
     });
-    console.log('Email notification sent successfully.');
+    console.log('Email sent successfully!');
   } catch (emailErr) {
-    console.warn('Email notification failed (form still submitted):', emailErr);
+    console.warn('Email failed:', emailErr);
   }
 
   // Generate draft (director-only section)
