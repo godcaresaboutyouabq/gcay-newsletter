@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GCAY Monthly Newsletter — Content Submission</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script>
+  // ── EmailJS Configuration ──
+  // STEP 1: Replace with your EmailJS Public Key (from emailjs.com → Account → General)
+  const EMAILJS_PUBLIC_KEY  = png9k8N_e1_IBbjf8;
+  // STEP 2: Replace with your EmailJS Service ID (from emailjs.com → Email Services)
+  const EMAILJS_SERVICE_ID  = service_rvt1j8r;
+  // STEP 3: Replace with your EmailJS Template ID (from emailjs.com → Email Templates)
+  const EMAILJS_TEMPLATE_ID = __ejs-test-mail-service__;
+
+  window.addEventListener('load', () => {
+    emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
+  });
+</script>
 <style>
   :root {
     --cream: #FAF7F2;
@@ -836,6 +850,44 @@ async function handleSubmit(e) {
   successScreen.style.display = 'block';
   document.getElementById('successName').textContent = data.submitter || 'Friend';
   document.getElementById('successMonth').textContent = data.month || 'this month';
+
+  // ── Send email notification to Director via EmailJS ──
+  try {
+    const partnerLines = [];
+    document.querySelectorAll('[name^="partner_name_"]').forEach(el => {
+      const n = el.name.split('_').pop();
+      const desc = (document.querySelector(`[name="partner_desc_${n}"]`) || {}).value || '';
+      if (el.value) partnerLines.push(`• ${el.value}: ${desc}`);
+    });
+    const eventLines = [];
+    document.querySelectorAll('[name^="event_name_"]').forEach(el => {
+      const n = el.name.split('_').pop();
+      const story = (document.querySelector(`[name="event_story_${n}"]`) || {}).value || '';
+      if (el.value) eventLines.push(`• ${el.value}: ${story}`);
+    });
+    const get = id => (document.getElementById(id) || {}).value || 'Not provided';
+    await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      submitted_by:   data.submitter || 'Unknown',
+      newsletter_month: data.month || 'Not specified',
+      opening_theme:  data.openingTheme || 'Not provided',
+      partnerships:   partnerLines.join('\n') || 'None submitted',
+      events:         eventLines.join('\n') || 'None submitted',
+      people_served:  get('numPeople'),
+      meals:          get('numMeals'),
+      clothing:       get('numClothing'),
+      grocery_bags:   get('numGrocery'),
+      vol_hours:      get('numVolHours'),
+      other_count:    get('numOther'),
+      praise_reports: get('praiseReports'),
+      prayer_requests:get('prayerRequests'),
+      call_to_action: `${get('ctaType')} — ${get('ctaDetails')}`,
+      extra_notes:    get('extraNotes'),
+      reply_to:       'gcay.newsletter@gmail.com',
+    });
+    console.log('Email notification sent successfully.');
+  } catch (emailErr) {
+    console.warn('Email notification failed (form still submitted):', emailErr);
+  }
 
   // Generate draft (director-only section)
   const draftArea = document.getElementById('draftArea');
