@@ -9,7 +9,7 @@
 <script>
   const EMAILJS_PUBLIC_KEY  = 'png9k8N_e1_IBbjf8';
   const EMAILJS_SERVICE_ID  = 'service_rvt1j8r';
-  const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__'; //
+  const EMAILJS_TEMPLATE_ID = '__ejs-test-mail-service__';
   window.addEventListener('load', () => {
     emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY });
   });
@@ -707,7 +707,12 @@ function collectFormData() {
   const photos = [(document.getElementById('photoDescriptions') || {}).value].filter(Boolean);
 
   const monthRaw = get('month');
-  const monthLabel = monthRaw ? new Date(monthRaw + '-01').toLocaleString('default', { month: 'long', year: 'numeric' }) : '';
+  // Fix: parse year/month directly to avoid UTC timezone shift bug
+  const monthLabel = monthRaw ? (() => {
+    const [yr, mo] = monthRaw.split('-');
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    return months[parseInt(mo, 10) - 1] + ' ' + yr;
+  })() : '';
 
   return {
     month: monthLabel,
@@ -843,6 +848,9 @@ async function handleSubmit(e) {
     console.log('Email sent successfully!');
   } catch (emailErr) {
     console.warn('Email failed:', emailErr);
+    // Show visible warning so director knows email failed
+    const successP = document.querySelector('#successScreen p');
+    if (successP) successP.innerHTML += '<br><br><strong style="color:#8B3A2A">⚠️ Email notification failed. Check your EmailJS Template ID is set correctly.</strong>';
   }
 
   // Generate draft (director-only section)
@@ -864,30 +872,52 @@ async function handleSubmit(e) {
 
   try {
     const prompt = buildPrompt(data);
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        messages: [{ role: 'user', content: prompt }]
-      })
-    });
 
-    const result = await response.json();
+    // Use Claude.ai artifact API (works when embedded, falls back gracefully)
+    const ANTHROPIC_KEY = 'YOUR_ANTHROPIC_API_KEY';
+
+    let text = '';
+
+    if (ANTHROPIC_KEY && ANTHROPIC_KEY !== 'YOUR_ANTHROPIC_API_KEY') {
+      // Direct call with API key
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const result = await response.json();
+      if (result.error) throw new Error(result.error.message);
+      text = result.content?.[0]?.text || '';
+    } else {
+      // No API key — show instructions to get draft manually
+      text = '✅ Form submitted & email sent to your Outlook!\n\n' +
+             '📋 TO GENERATE YOUR NEWSLETTER DRAFT:\n\n' +
+             'Copy the content from your email notification and paste it into Claude.ai with the message:\n\n' +
+             '"Write a GCAY newsletter in the style of the February newsletter using this submitted content: [paste content here]"\n\n' +
+             '— OR —\n\n' +
+             'Add your Anthropic API key to this file (replace YOUR_ANTHROPIC_API_KEY) to generate drafts automatically here.';
+    }
+
+    window._lastDraft = text;
+    window._lastPrompt = prompt;
     clearInterval(barInterval);
     loadingBarInner.style.width = '100%';
     setTimeout(() => { loadingBar.style.display = 'none'; }, 400);
-
-    const text = result.content?.[0]?.text || 'Draft could not be generated. Please check your API connection.';
-    window._lastDraft = text;
-    window._lastPrompt = prompt;
     draftText.textContent = text;
 
   } catch (err) {
     clearInterval(barInterval);
     loadingBar.style.display = 'none';
-    draftText.textContent = 'Connection error. Please check your internet and try again.\n\n' + err.message;
+    draftText.textContent = '⚠️ Draft generation error: ' + err.message + '\n\nYour form was submitted and email notification was sent. Check your Outlook inbox.';
   }
 }
 
@@ -919,9 +949,20 @@ async function regenerateDraft() {
   }, 400);
 
   try {
+    const ANTHROPIC_KEY = 'YOUR_ANTHROPIC_API_KEY';
+    if (!ANTHROPIC_KEY || ANTHROPIC_KEY === 'YOUR_ANTHROPIC_API_KEY') {
+      loadingBar.style.display = 'none';
+      draftText.textContent = window._lastDraft || 'No draft available. Add your API key to enable auto-generation.';
+      return;
+    }
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
@@ -938,7 +979,7 @@ async function regenerateDraft() {
   } catch (err) {
     clearInterval(barInterval);
     loadingBar.style.display = 'none';
-    draftText.textContent = 'Error regenerating. Please try again.';
+    draftText.textContent = 'Error: ' + err.message;
   }
 }
 
